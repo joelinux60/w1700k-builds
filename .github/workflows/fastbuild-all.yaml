@@ -1,7 +1,10 @@
-name: fastbuild test, oc-ubi, ubi, snapshot
+name: fastbuild test, ubi2-oc, ubi2, snapshot
 
 on:
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 env:
   DK_USERNAME: ${{ secrets.DOCKER_USERNAME }}
@@ -28,7 +31,7 @@ jobs:
           - normal
         # ########### Add your target name below ###########
         # E.g. target: [x86_64, wdr4310v1]
-        target: [test, minimal-oc-ubi, minimal-ubi, SNAPSHOT]
+        target: [test, ubi2-oc, ubi2, SNAPSHOT]
         include:
         - mode: normal
           title: Build
@@ -59,61 +62,54 @@ jobs:
     - name: 1. Init build env
       run: scripts/cisteps/build-openwrt/01-init_env.sh
 
-    - name: 2. Check if skip this job
-      run: scripts/cisteps/build-openwrt/02-check_target.sh
-
-    - name: 3. Clean up for extra space
-      if: env.SKIP_TARGET == '0' && env.TEST != '1'
-      run: scripts/cisteps/build-openwrt/03-clean_up.sh
-
     # https://github.com/docker/setup-buildx-action
     - name: Set up Docker Buildx
       id: buildx
       if: env.SKIP_TARGET == '0'
       uses: docker/setup-buildx-action@v4
 
-    - name: 4. Configure docker
+    - name: 2. Configure docker
       if: env.SKIP_TARGET == '0'
-      run: scripts/cisteps/build-openwrt/04-configure_docker.sh
+      run: scripts/cisteps/build-openwrt/02-configure_docker.sh
 
-    - name: 5. Check status of builders
+    - name: 3. Check status of builders
       if: env.SKIP_TARGET == '0'
-      run: scripts/cisteps/build-openwrt/05-check_builders.sh
+      run: scripts/cisteps/build-openwrt/03-check_builders.sh
 
-    - name: 6. Get builder
+    - name: 4. Get builder
       if: env.SKIP_TARGET == '0'
-      run: scripts/cisteps/build-openwrt/06-get_builder.sh
+      run: scripts/cisteps/build-openwrt/04-get_builder.sh
 
-    - name: 7. Clone/update OpenWrt
+    - name: 5. Clone/update OpenWrt
       if: env.SKIP_TARGET == '0'
-      run: scripts/cisteps/build-openwrt/07-download_openwrt.sh
+      run: scripts/cisteps/build-openwrt/05-download_openwrt.sh
 
-    - name: 8. Apply customizations
+    - name: 6. Apply customizations
       if: env.SKIP_TARGET == '0'
-      run: scripts/cisteps/build-openwrt/08-customize.sh
+      run: scripts/cisteps/build-openwrt/06-customize.sh
 
-    - name: 9. Prepare config file
+    - name: 7. Prepare config file
       if: env.SKIP_TARGET == '0'
-      run: scripts/cisteps/build-openwrt/09-prepare_config.sh
+      run: scripts/cisteps/build-openwrt/07-prepare_config.sh
 
-    - name: 10. Download packages
+    - name: 8. Download packages
       if: env.SKIP_TARGET == '0'
-      run: scripts/cisteps/build-openwrt/10-download_packages.sh
+      run: scripts/cisteps/build-openwrt/08-download_packages.sh
 
-    - name: 11. Compile firmware and packages with multiple threads
+    - name: 9. Compile firmware and packages with multiple threads
       id: mtcompile
       if: env.SKIP_TARGET == '0'
       continue-on-error: true
-      run: scripts/cisteps/build-openwrt/11-compile_multi.sh
+      run: scripts/cisteps/build-openwrt/09-compile_multi.sh
 
-    - name: 12. Compile again more verbosely if failed
+    - name: 10. Compile again more verbosely if failed
       if: env.SKIP_TARGET == '0' && steps.mtcompile.outputs.started == '1' && steps.mtcompile.outputs.status != 'success'
-      run: scripts/cisteps/build-openwrt/12-compile_single.sh
+      run: scripts/cisteps/build-openwrt/10-compile_single.sh
 
-    - name: 13. Organize files
+    - name: 11. Organize files
       id: organize
       if: env.SKIP_TARGET == '0' && !cancelled()
-      run: scripts/cisteps/build-openwrt/13-organize_files.sh
+      run: scripts/cisteps/build-openwrt/11-organize_files.sh
 
     - name: Create Release
       if: env.SKIP_TARGET == '0' && env.TEST != '1' && env.OPT_PACKAGE_ONLY != '1' && steps.organize.outputs.status == 'success' && !cancelled()
@@ -133,10 +129,10 @@ jobs:
           --title "$VERSION" \
           --notes-file "${HOST_BIN_DIR}/build_info"
 
-    - name: 14. Upload builder
+    - name: 12. Upload builder
       if: |
         env.SKIP_TARGET == '0' && !cancelled() && (
           job.status == 'success'
           || env.OPT_PUSH_WHEN_FAIL == '1'
         )
-      run: scripts/cisteps/build-openwrt/14-upload_builder.sh
+      run: scripts/cisteps/build-openwrt/12-upload_builder.sh
